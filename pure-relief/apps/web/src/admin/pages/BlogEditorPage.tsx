@@ -55,11 +55,17 @@ export function BlogEditorPage() {
       if (isNew) {
         const created = await api.post<BlogPost>('/api/admin/blog', values, readCsrfCookie());
         qc.invalidateQueries({ queryKey: ['admin-blog'] });
+        // Also invalidate the public storefront's blog queries — otherwise the
+        // website keeps showing stale blog data until its staleTime expires.
+        qc.invalidateQueries({ queryKey: ['blog-posts'] });
+        qc.invalidateQueries({ queryKey: ['blog-post'] });
         navigate(`/admin/blog/${created.id}`, { replace: true });
       } else {
         await api.put(`/api/admin/blog/${id}`, values, readCsrfCookie());
         qc.invalidateQueries({ queryKey: ['admin-blog'] });
         qc.invalidateQueries({ queryKey: ['admin-blog-post', id] });
+        qc.invalidateQueries({ queryKey: ['blog-posts'] });
+        qc.invalidateQueries({ queryKey: ['blog-post'] });
       }
     } catch (err) {
       setServerError(err instanceof ApiClientError ? err.message : 'Failed to save post.');

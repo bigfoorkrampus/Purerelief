@@ -19,6 +19,9 @@ export function FaqManagePage() {
     try {
       await api.post('/api/admin/faqs', { question, answer, category, sortOrder: faqs?.length ?? 0 }, readCsrfCookie());
       qc.invalidateQueries({ queryKey: ['admin-faqs'] });
+      // Public storefront reads FAQs under the 'faqs' key (5-min staleTime)
+      // — without this a new FAQ wouldn't appear on the site until then.
+      qc.invalidateQueries({ queryKey: ['faqs'] });
       setQuestion('');
       setAnswer('');
       setShowForm(false);

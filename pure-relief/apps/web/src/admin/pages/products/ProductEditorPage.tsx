@@ -79,11 +79,19 @@ export function ProductEditorPage() {
       if (isNew) {
         const created = await api.post<Product>('/api/admin/products', values, readCsrfCookie());
         qc.invalidateQueries({ queryKey: ['admin-products'] });
+        // Also invalidate the public storefront's product queries — this was
+        // the actual cause of "admin saves, website doesn't update": the
+        // storefront reads from ['products']/['product', slug] query keys,
+        // which nothing here was telling to refetch.
+        qc.invalidateQueries({ queryKey: ['products'] });
+        qc.invalidateQueries({ queryKey: ['product'] });
         navigate(`/admin/products/${created.id}`, { replace: true });
       } else {
         await api.put(`/api/admin/products/${id}`, values, readCsrfCookie());
         qc.invalidateQueries({ queryKey: ['admin-products'] });
         qc.invalidateQueries({ queryKey: ['admin-product', id] });
+        qc.invalidateQueries({ queryKey: ['products'] });
+        qc.invalidateQueries({ queryKey: ['product'] });
         setLastSavedAt(new Date());
       }
     } catch (err) {

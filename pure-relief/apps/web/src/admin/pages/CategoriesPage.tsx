@@ -23,6 +23,11 @@ export function CategoriesPage() {
         readCsrfCookie(),
       );
       qc.invalidateQueries({ queryKey: ['admin-categories'] });
+      // Public storefront reads categories under a separate 'categories' key
+      // (see apps/web/src/hooks/use-storefront.ts). Without this, a newly
+      // created category wouldn't show up in the shop's filter list until
+      // its 5-minute staleTime expired.
+      qc.invalidateQueries({ queryKey: ['categories'] });
       setName('');
       setDescription('');
       setShowForm(false);

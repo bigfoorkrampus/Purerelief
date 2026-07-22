@@ -16,6 +16,47 @@ type DashboardSummary = {
   customerCount: number;
 };
 
+// ============================================================================
+// Public query key invalidation
+//
+// BUG FIX (website not reflecting admin changes):
+// Every admin mutation below previously invalidated ONLY its own `admin-*`
+// query key. That correctly refreshed the admin UI, but the public storefront
+// (apps/web/src/hooks/use-storefront.ts) reads from a completely different
+// set of query keys — 'products', 'product', 'categories', 'blog-posts',
+// 'blog-post', 'faqs', 'site-config' — which were never told anything had
+// changed. Those queries have a staleTime of 60s–5min, so the storefront
+// kept serving cached data until that window happened to expire or the
+// visitor did a hard reload. There was no cache-layer bug (no Cloudflare
+// cache, no service worker) — this was the actual and complete cause.
+//
+// Fix: invalidate the matching public query key(s) alongside the admin one
+// in every mutation that changes storefront-visible content. Admin and
+// storefront run in the same browser tab in this app (same origin, same
+// QueryClient instance via main.tsx), so this takes effect immediately —
+// no extra round trip, no polling.
+// ============================================================================
+function invalidatePublicProducts(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ['products'] });
+  qc.invalidateQueries({ queryKey: ['product'] });
+}
+function invalidatePublicCategories(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ['categories'] });
+}
+function invalidatePublicBlog(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ['blog-posts'] });
+  qc.invalidateQueries({ queryKey: ['blog-post'] });
+}
+function invalidatePublicFaqs(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ['faqs'] });
+}
+function invalidatePublicReviews(qc: ReturnType<typeof useQueryClient>, productSlug?: string) {
+  if (productSlug) qc.invalidateQueries({ queryKey: ['product-reviews', productSlug] });
+  else qc.invalidateQueries({ queryKey: ['product-reviews'] });
+  // Approving/rejecting a review changes the product's avgRating/reviewCount too.
+  invalidatePublicProducts(qc);
+}
+
 export function useAdminDashboard() {
   return useQuery({ queryKey: ['admin-dashboard'], queryFn: () => api.get<DashboardSummary>('/api/admin/dashboard/summary') });
 }
@@ -43,7 +84,10 @@ export function useDeleteProduct() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/api/admin/products/${id}`, readCsrfCookie()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-products'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-products'] });
+      invalidatePublicProducts(qc);
+    },
   });
 }
 
@@ -51,7 +95,10 @@ export function useBulkUpdateProductStatus() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: { ids: string[]; status: ProductStatus }) => api.post('/api/admin/products/bulk/status', input, readCsrfCookie()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-products'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-products'] });
+      invalidatePublicProducts(qc);
+    },
   });
 }
 
@@ -59,7 +106,10 @@ export function useBulkDeleteProducts() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (ids: string[]) => api.post('/api/admin/products/bulk/delete', { ids }, readCsrfCookie()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-products'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-products'] });
+      invalidatePublicProducts(qc);
+    },
   });
 }
 
@@ -70,7 +120,39 @@ export function useImportProductsCsv() {
       const text = await file.text();
       return api.post<{ imported: number; failed: number }>('/api/admin/products/import/csv', text, readCsrfCookie());
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-products'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-products'] });
+      invalidatePublicProducts(qc);
+    },
+  });
+}
+
+/**
+ * Create/update product. This was previously missing from the admin hooks
+ * file entirely — ProductEditorPage called `api.post`/`api.put` directly and
+ * only invalidated 'admin-products' / 'admin-product'. Centralizing it here
+ * so the public invalidation can't be forgotten by a future caller.
+ */
+export function useCreateProduct() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (values: unknown) => api.post<Product>('/api/admin/products', values, readCsrfCookie()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-products'] });
+      invalidatePublicProducts(qc);
+    },
+  });
+}
+
+export function useUpdateProduct(id: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (values: unknown) => api.put<Product>(`/api/admin/products/${id}`, values, readCsrfCookie()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-products'] });
+      qc.invalidateQueries({ queryKey: ['admin-product', id] });
+      invalidatePublicProducts(qc);
+    },
   });
 }
 
@@ -84,7 +166,26 @@ export function useDeleteCategory() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/api/admin/categories/${id}`, readCsrfCookie()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-categories'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-categories'] });
+      invalidatePublicCategories(qc);
+      invalidatePublicProducts(qc);
+    },
+  });
+}
+
+export function useSaveCategory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id?: string; slug: string; name: string; description?: string; imageKey?: string | null; sortOrder?: number; seo?: unknown }) =>
+      input.id
+        ? api.put(`/api/admin/categories/${input.id}`, input, readCsrfCookie())
+        : api.post('/api/admin/categories', input, readCsrfCookie()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-categories'] });
+      invalidatePublicCategories(qc);
+      invalidatePublicProducts(qc);
+    },
   });
 }
 
@@ -112,7 +213,12 @@ export function useDeleteMedia() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/api/admin/media/${id}`, readCsrfCookie()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-media'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-media'] });
+      // A deleted asset could be in use as a product image or blog cover.
+      invalidatePublicProducts(qc);
+      invalidatePublicBlog(qc);
+    },
   });
 }
 
@@ -131,7 +237,33 @@ export function useDeleteBlogPost() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/api/admin/blog/${id}`, readCsrfCookie()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-blog'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-blog'] });
+      invalidatePublicBlog(qc);
+    },
+  });
+}
+
+export function useCreateBlogPost() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (values: unknown) => api.post<BlogPost>('/api/admin/blog', values, readCsrfCookie()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-blog'] });
+      invalidatePublicBlog(qc);
+    },
+  });
+}
+
+export function useUpdateBlogPost(id: string | undefined) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (values: unknown) => api.put<BlogPost>(`/api/admin/blog/${id}`, values, readCsrfCookie()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-blog'] });
+      qc.invalidateQueries({ queryKey: ['admin-blog-post', id] });
+      invalidatePublicBlog(qc);
+    },
   });
 }
 
@@ -149,7 +281,10 @@ export function useSetReviewStatus() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (input: { id: string; status: ReviewStatus }) => api.post(`/api/admin/reviews/${input.id}/status`, { status: input.status }, readCsrfCookie()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-reviews'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-reviews'] });
+      invalidatePublicReviews(qc);
+    },
   });
 }
 
@@ -163,7 +298,22 @@ export function useDeleteFaq() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => api.delete(`/api/admin/faqs/${id}`, readCsrfCookie()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['admin-faqs'] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-faqs'] });
+      invalidatePublicFaqs(qc);
+    },
+  });
+}
+
+export function useSaveFaq() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: { id?: string; question: string; answer: string; category: string; sortOrder?: number }) =>
+      input.id ? api.put(`/api/admin/faqs/${input.id}`, input, readCsrfCookie()) : api.post('/api/admin/faqs', input, readCsrfCookie()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin-faqs'] });
+      invalidatePublicFaqs(qc);
+    },
   });
 }
 
