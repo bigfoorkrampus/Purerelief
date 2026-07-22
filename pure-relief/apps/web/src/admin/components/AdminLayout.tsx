@@ -42,10 +42,10 @@ export function AdminLayout() {
     <div className="flex min-h-screen bg-surface-tint">
       {/* Sidebar */}
       <aside
-  className={`fixed inset-y-0 left-0 z-40 flex w-64 flex-col border-r border-slate-100 bg-white transition-transform lg:static lg:translate-x-0 ${
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
-        }`}
-      >
+  className={`fixed inset-y-0 left-0 z-40 flex h-screen w-64 flex-col overflow-y-auto border-r border-slate-100 bg-white transition-transform lg:static lg:h-screen lg:translate-x-0 ${
+    sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+  }`}
+>
         <div className="flex h-16 items-center gap-2.5 border-b border-slate-100 px-6">
           <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-brand-600 to-cold-500 text-white">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -55,7 +55,7 @@ export function AdminLayout() {
           <span className="font-display text-[16px] font-bold tracking-tighter">Pure.Relief Admin</span>
         </div>
 
-        <nav className="flex-1 overflow-y-auto p-4 space-y-1">
+        <nav className="p-4 space-y-1">
           {visibleItems.map((item) => (
             <NavLink
               key={item.href}
@@ -74,8 +74,8 @@ export function AdminLayout() {
           ))}
         </nav>
 
-        <div className="mt-auto border-t border-slate-100 p-4">
-          <div className="flex items-center gap-3 rounded-xl px-2 py-2">
+        <div className="mt-auto shrink-0 border-t border-slate-100 p-4 bg-white">
+          <div className="flex h-14 items-center gap-3 rounded-xl px-2">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-100 text-sm font-bold text-brand-700">
               {user?.fullName?.[0]?.toUpperCase() ?? '?'}
             </div>
