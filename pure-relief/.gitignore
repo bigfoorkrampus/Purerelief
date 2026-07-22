@@ -1,0 +1,25 @@
+node_modules/
+dist/
+.DS_Store
+*.log
+npm-debug.log*
+
+# Vite
+apps/web/dist/
+apps/web/.env.local
+apps/web/.env*.local
+
+# Wrangler / Cloudflare
+apps/worker/.dev.vars
+apps/worker/.wrangler/
+.wrangler/
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# OS
+Thumbs.db
+node_modules/
+*.tsbuildinfo

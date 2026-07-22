@@ -1,0 +1,17 @@
+{
+  "name": "pure-relief",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "dev:web": "npm run dev --workspace=apps/web",
+    "dev:worker": "npm run dev --workspace=apps/worker",
+    "build:web": "npm run build --workspace=apps/web",
+    "build:worker": "npm run build --workspace=apps/worker",
+    "deploy:worker": "npm run deploy --workspace=apps/worker",
+    "db:migrate:local": "npm run db:migrate:local --workspace=apps/worker",
+    "db:migrate:remote": "npm run db:migrate:remote --workspace=apps/worker"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.3"
+  }
+}

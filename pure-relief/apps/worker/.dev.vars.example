@@ -1,0 +1,9 @@
+# Copy to .dev.vars for local `wrangler dev` (this file is gitignored).
+# In production, set these as real secrets with:
+#   wrangler secret put JWT_ACCESS_SECRET
+#   wrangler secret put JWT_REFRESH_SECRET
+#   wrangler secret put ADMIN_SESSION_PEPPER
+
+JWT_ACCESS_SECRET=dev-only-change-me-access-secret-please
+JWT_REFRESH_SECRET=dev-only-change-me-refresh-secret-please
+ADMIN_SESSION_PEPPER=dev-only-change-me-pepper-value-please

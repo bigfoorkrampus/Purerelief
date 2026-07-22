@@ -1,0 +1,56 @@
+name = "pure-relief-api"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+compatibility_flags = ["nodejs_compat"]
+
+# ----------------------------------------------------------------------------
+# Update database_id and preview_database_id after running:
+#   wrangler d1 create pure_relief_db
+# ----------------------------------------------------------------------------
+[[d1_databases]]
+binding = "DB"
+database_name = "pure_relief_db"
+database_id = "a477574b-c197-4dce-93fd-a3c99ac34fd7"
+migrations_dir = "migrations"
+
+# ----------------------------------------------------------------------------
+# Update bucket_name after running:
+#   wrangler r2 bucket create pure-relief-media
+# ----------------------------------------------------------------------------
+[[r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "pure-relief-media"
+
+# KV used for lightweight rate-limit counters and session/JWT-denylist lookups.
+# Create with: wrangler kv namespace create RATE_LIMIT_KV
+[[kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "ec2c573b791e464e8dd49370ad02db8e"
+
+[vars]
+ENVIRONMENT = "production"
+PUBLIC_SITE_URL = "https://a746f0f6.pure-relief.pages.dev"
+CORS_ALLOWED_ORIGIN = "https://a746f0f6.pure-relief.pages.dev"
+
+# Secrets — set these with `wrangler secret put <NAME>`, never commit real values:
+#   JWT_ACCESS_SECRET
+#   JWT_REFRESH_SECRET
+#   ADMIN_SESSION_PEPPER
+
+[env.staging]
+name = "pure-relief-api-staging"
+vars = { ENVIRONMENT = "staging", PUBLIC_SITE_URL = "https://staging.purerelief.co.uk", CORS_ALLOWED_ORIGIN = "https://staging.purerelief.co.uk" }
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "pure_relief_db_staging"
+database_id = "REPLACE_WITH_STAGING_D1_DATABASE_ID"
+migrations_dir = "migrations"
+
+[[env.staging.r2_buckets]]
+binding = "MEDIA_BUCKET"
+bucket_name = "pure-relief-media-staging"
+
+[[env.staging.kv_namespaces]]
+binding = "RATE_LIMIT_KV"
+id = "REPLACE_WITH_STAGING_KV_NAMESPACE_ID"
