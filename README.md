@@ -1,1 +1,1 @@
-# purerelief Website with admin panel
+# purerelief
